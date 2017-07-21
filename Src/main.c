@@ -51,6 +51,8 @@
 #include "usb_device.h"
 
 /* USER CODE BEGIN Includes */
+#include "usbd_hid.h"
+#include "usb_hid_keyboard.h"
 
 /* USER CODE END Includes */
 
@@ -85,6 +87,18 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+#if 0
+	struct keyboardHID_t keyboardHID;
+	keyboardHID.id = 1;
+	keyboardHID.modifiers = 0;
+	keyboardHID.key1 = 0;
+	keyboardHID.key2 = 0;
+	keyboardHID.key3 = 0;
+#endif
+
+	struct mediaHID_t mediaHID;
+	mediaHID.id = 2;
+	mediaHID.keys = 0;
 
   /* USER CODE END 1 */
 
@@ -125,6 +139,25 @@ int main(void)
 	  	  Delayer = 100;
 
 	  	  HAL_GPIO_TogglePin(LED_PC13_GPIO_Port, LED_PC13_Pin);
+
+			// Send HID report volume down
+			mediaHID.keys = USB_HID_VOL_DEC;
+			USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&mediaHID, sizeof(struct mediaHID_t));
+			HAL_Delay(30);
+			mediaHID.keys = 0;
+			USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&mediaHID, sizeof(struct mediaHID_t));
+			HAL_Delay(30);
+
+			#if 0
+			// press the 'L'
+			keyboardHID.modifiers = USB_HID_MODIFIER_RIGHT_SHIFT;
+			keyboardHID.key1 = USB_HID_KEY_L;
+			USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&keyboardHID, sizeof(struct keyboardHID_t));
+			HAL_Delay(30);
+			keyboardHID.modifiers = 0;
+			keyboardHID.key1 = 0;
+			USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&keyboardHID, sizeof(struct keyboardHID_t));
+			#endif
 	  }
 
 	  //USBD_BUSY
