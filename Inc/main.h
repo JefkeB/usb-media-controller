@@ -51,7 +51,8 @@
   /* Includes ------------------------------------------------------------------*/
 
 /* USER CODE BEGIN Includes */
-
+#include <stdint.h>
+#include "ScanPort.h"
 /* USER CODE END Includes */
 
 /* Private define ------------------------------------------------------------*/
@@ -59,7 +60,43 @@
 #define LED_PC13_Pin GPIO_PIN_13
 #define LED_PC13_GPIO_Port GPIOC
 
+
+
 /* USER CODE BEGIN Private defines */
+
+// Rotary
+#define ROTARY_PB12_Pin 		GPIO_PIN_12
+#define ROTARY_PB12_GPIO_Port 	GPIOB
+
+#define ROTARY_PB13_Pin			GPIO_PIN_13
+#define ROTARY_PB13_GPIO_Port 	GPIOB
+
+#define ROTARY_PB14_Pin 		GPIO_PIN_14
+#define ROTARY_PB14_GPIO_Port 	GPIOB
+
+#define ROTARY_A_Pin			ROTARY_PB12_Pin
+#define ROTARY_A_Bit			12
+#define ROTARY_A_Port			ROTARY_PB12_GPIO_Port
+
+#define ROTARY_B_Pin			ROTARY_PB13_Pin
+#define ROTARY_B_Bit			13
+#define ROTARY_B_Port			ROTARY_PB13_GPIO_Port
+
+#define ROTARY_SW_Pin			ROTARY_PB14_Pin
+#define ROTARY_SW_Bit			14
+#define ROTARY_SW_Port			ROTARY_PB14_GPIO_Port
+#define KEYS_ROTARY_SW			0x01
+
+
+typedef struct TKeys
+{
+	uint8_t Rotary_SW	: 1;
+
+	uint8_t nx			: 7;
+} TKeys ;
+
+TPort Keys;
+
 
 /* USER CODE END Private defines */
 

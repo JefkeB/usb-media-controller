@@ -54,6 +54,8 @@
 #include "usbd_hid.h"
 #include "usb_hid_keyboard.h"
 
+#include "Rotary.h"
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -62,6 +64,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 volatile uint32_t Delayer = 0;
+TPort keys;
+uint8_t MustClearKey = 0;
+uint16_t MustClearKey_Delay = 0;
 
 /* USER CODE END PV */
 
@@ -76,9 +81,43 @@ static void MX_GPIO_Init(void);
 
 /* USER CODE BEGIN 0 */
 
+//
+//
+//
+void KeyScan()
+{
+	(*(TKeys *)(&Keys.input)).Rotary_SW = !HAL_GPIO_ReadPin(ROTARY_SW_Port, ROTARY_SW_Pin);
+
+	ScanPort( &Keys );
+}
+
+
+//
+//
+//
 void HAL_SYSTICK_Callback()
 {
 	if(Delayer) { Delayer--; }
+	if(MustClearKey_Delay) { MustClearKey_Delay--; }
+
+	RotaryScan();
+	KeyScan();
+}
+
+
+//
+//
+//
+void SendReport(uint8_t key)
+{
+	struct mediaHID_t mediaHID;
+	mediaHID.id = 2;
+
+	mediaHID.keys = key;
+	USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&mediaHID, sizeof(struct mediaHID_t));
+
+	MustClearKey = 1;
+	MustClearKey_Delay = 30;
 }
 
 /* USER CODE END 0 */
@@ -99,17 +138,12 @@ int main(void)
 	struct mediaHID_t mediaHID;
 	mediaHID.id = 2;
 	mediaHID.keys = 0;
-
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();
@@ -123,7 +157,12 @@ int main(void)
   MX_USB_DEVICE_Init();
 
   /* USER CODE BEGIN 2 */
+  KeyScan();
+  KeyScan();
 
+  RotaryStart();
+
+  int16_t rot;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -134,33 +173,47 @@ int main(void)
 
   /* USER CODE BEGIN 3 */
 
+
 	  if(Delayer == 0)
 	  {
 	  	  Delayer = 100;
 
 	  	  HAL_GPIO_TogglePin(LED_PC13_GPIO_Port, LED_PC13_Pin);
-
-			// Send HID report volume down
-			mediaHID.keys = USB_HID_VOL_DEC;
-			USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&mediaHID, sizeof(struct mediaHID_t));
-			HAL_Delay(30);
-			mediaHID.keys = 0;
-			USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&mediaHID, sizeof(struct mediaHID_t));
-			HAL_Delay(30);
-
-			#if 0
-			// press the 'L'
-			keyboardHID.modifiers = USB_HID_MODIFIER_RIGHT_SHIFT;
-			keyboardHID.key1 = USB_HID_KEY_L;
-			USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&keyboardHID, sizeof(struct keyboardHID_t));
-			HAL_Delay(30);
-			keyboardHID.modifiers = 0;
-			keyboardHID.key1 = 0;
-			USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&keyboardHID, sizeof(struct keyboardHID_t));
-			#endif
 	  }
 
-	  //USBD_BUSY
+
+  	  // TURN => Volume up\down
+  	  rot = RotaryGet();
+	  if(rot > 0)
+	  {
+		    SendReport(USB_HID_VOL_UP);
+	  }
+
+	  if(rot < 0)
+	  {
+		    SendReport(USB_HID_VOL_DEC);
+	  }
+
+	  // rotary key pressed
+	  if((Keys.up & KEYS_ROTARY_SW) > 0)
+	  {
+			Keys.up &= ~KEYS_ROTARY_SW;
+			HAL_GPIO_TogglePin(LED_PC13_GPIO_Port, LED_PC13_Pin);
+
+		    SendReport(USB_HID_PAUSE);
+	  }
+
+
+	  if(MustClearKey)
+	  {
+		  if(MustClearKey_Delay == 0)
+		  {
+			  MustClearKey  = 0;
+
+			  mediaHID.keys = 0;
+			  USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&mediaHID, sizeof(struct mediaHID_t));
+		  }
+	  }
   }
   /* USER CODE END 3 */
 
@@ -238,6 +291,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_PC13_GPIO_Port, LED_PC13_Pin, GPIO_PIN_SET);
@@ -247,6 +301,21 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_PC13_GPIO_Port, &GPIO_InitStruct);
+
+
+  GPIO_InitStruct.Pin = ROTARY_A_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  HAL_GPIO_Init(ROTARY_A_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = ROTARY_B_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(ROTARY_B_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = ROTARY_SW_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(ROTARY_SW_Port, &GPIO_InitStruct);
 
 }
 
