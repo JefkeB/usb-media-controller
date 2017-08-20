@@ -64,6 +64,9 @@
 
 /* USER CODE BEGIN Private defines */
 
+#define	USB_PULL_Pin			GPIO_PIN_15
+#define USB_PULL_GPIO_Port		GPIOA
+
 // Rotary
 #define ROTARY_PB12_Pin 		GPIO_PIN_12
 #define ROTARY_PB12_GPIO_Port 	GPIOB

@@ -154,6 +154,9 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+
+  // ena usb
+  HAL_GPIO_WritePin(USB_PULL_GPIO_Port, USB_PULL_Pin, GPIO_PIN_SET);
   MX_USB_DEVICE_Init();
 
   /* USER CODE BEGIN 2 */
@@ -163,6 +166,7 @@ int main(void)
   RotaryStart();
 
   int16_t rot;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -301,6 +305,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_PC13_GPIO_Port, &GPIO_InitStruct);
+
+  HAL_GPIO_WritePin(USB_PULL_GPIO_Port, USB_PULL_Pin, GPIO_PIN_RESET);
+  GPIO_InitStruct.Pin = USB_PULL_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(USB_PULL_GPIO_Port, &GPIO_InitStruct);
 
 
   GPIO_InitStruct.Pin = ROTARY_A_Pin;
