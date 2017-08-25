@@ -55,6 +55,7 @@
 #include "usb_hid_keyboard.h"
 
 #include "Rotary.h"
+#include "Uart.h"
 
 /* USER CODE END Includes */
 
@@ -155,17 +156,22 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
 
-  // ena usb
-  HAL_GPIO_WritePin(USB_PULL_GPIO_Port, USB_PULL_Pin, GPIO_PIN_SET);
   MX_USB_DEVICE_Init();
 
   /* USER CODE BEGIN 2 */
+
+  Uart_Setup();
+  Uart_Puts("Gestart\r\n");
+
   KeyScan();
   KeyScan();
 
   RotaryStart();
 
   int16_t rot;
+
+  // ena usb
+  HAL_GPIO_WritePin(USB_PULL_GPIO_Port, USB_PULL_Pin, GPIO_PIN_SET);
 
   /* USER CODE END 2 */
 
@@ -190,11 +196,13 @@ int main(void)
   	  rot = RotaryGet();
 	  if(rot > 0)
 	  {
+		  	Uart_Puts("+\r\n");
 		    SendReport(USB_HID_VOL_UP);
 	  }
 
 	  if(rot < 0)
 	  {
+		  	Uart_Puts("-\r\n");
 		    SendReport(USB_HID_VOL_DEC);
 	  }
 
@@ -204,6 +212,7 @@ int main(void)
 			Keys.up &= ~KEYS_ROTARY_SW;
 			HAL_GPIO_TogglePin(LED_PC13_GPIO_Port, LED_PC13_Pin);
 
+		  	Uart_Puts("||\r\n");
 		    SendReport(USB_HID_PAUSE);
 	  }
 
