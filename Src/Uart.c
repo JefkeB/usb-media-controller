@@ -58,7 +58,7 @@ void Uart_Putc(char ch)
 //
 //
 //
-void Uart_Puts(char *s)
+void Uart_Puts(const char *s)
 {
 	while(*s)
     {
