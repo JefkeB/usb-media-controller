@@ -68,6 +68,12 @@ volatile uint32_t Delayer = 0;
 TPort keys;
 uint8_t MustClearKey = 0;
 uint16_t MustClearKey_Delay = 0;
+uint16_t RotaryKeyTimePressed;
+uint16_t RotaryMode = 0;
+uint16_t RotaryModeOld = 0;
+uint16_t RotaryModeTimeOut;
+uint16_t RotarySpecialMode = 0;
+
 
 /* USER CODE END PV */
 
@@ -101,6 +107,13 @@ void HAL_SYSTICK_Callback()
 	if(Delayer) { Delayer--; }
 	if(MustClearKey_Delay) { MustClearKey_Delay--; }
 
+	if(RotaryKeyTimePressed < 6000)
+	{
+		RotaryKeyTimePressed++;
+	}
+
+	if(RotaryModeTimeOut) { RotaryModeTimeOut--; }
+
 	RotaryScan();
 	KeyScan();
 }
@@ -121,6 +134,195 @@ void SendReport(uint8_t key)
 	MustClearKey_Delay = 30;
 }
 
+
+// deze werkt leuk
+// alleen :
+// controle op niet veranderd heeft volgende probleem
+// beginnen in mode 1
+// 1 -> 2 -> 0 -> 1  is dan niet verandert  -> dus verlaten speciale mode !!
+//
+void Task()
+{
+  int16_t rot;
+
+  struct mediaHID_t mediaHID;
+
+  mediaHID.id = 2;
+  mediaHID.keys = 0;
+
+  while(1)
+  {
+	  // TURN => Volume up\down
+	  rot = RotaryGet();
+
+	  if(rot > 0)
+	  {
+		  switch(RotaryMode)
+		  {
+		  	  case 0:
+				  	Uart_Puts("+\r\n");
+				    SendReport(USB_HID_VOL_UP);
+		  		  break;
+
+		  	  case 1:
+					Uart_Puts("Next\r\n");
+					SendReport(USB_HID_SCAN_NEXT);
+					RotaryModeTimeOut = 2000;
+		  		  break;
+
+		  	  case 2:
+					Uart_Puts("FFW\r\n");
+					SendReport(USB_HID_FFW);
+					RotaryModeTimeOut = 2000;
+		  		  break;
+		  }
+	  }
+
+	  if(rot < 0)
+	  {
+		  switch(RotaryMode)
+		  {
+		  	  case 0:
+				  	Uart_Puts("-\r\n");
+				    SendReport(USB_HID_VOL_DEC);
+		  		  break;
+
+		  	  case 1:
+					Uart_Puts("Prev\r\n");
+					SendReport(USB_HID_SCAN_PREV);
+					RotaryModeTimeOut = 2000;
+		  		  break;
+
+		  	  case 2:
+					Uart_Puts("REV\r\n");
+					SendReport(USB_HID_REW);
+					RotaryModeTimeOut = 2000;
+		  		  break;
+		  }
+	  }
+
+
+	  //
+	  // rotary key pressed
+	  if((Keys.down & KEYS_ROTARY_SW) > 0)
+	  {
+		  Keys.down &= ~KEYS_ROTARY_SW;
+
+		  RotaryKeyTimePressed = (RotaryMode * 750);
+
+		  RotaryModeOld = RotaryMode;
+	  }
+
+	  // rotary key still pressed
+	  if((Keys.level & KEYS_ROTARY_SW) > 0)
+	  {
+		  switch(RotaryMode)
+		  {
+		  	  case 0x00:
+		      case 0x80:
+		  		  if(RotaryKeyTimePressed > 750)
+		  		  {
+				  	  Uart_Puts("Special mode 1 <Enter>\r\n");
+		  			  RotaryMode = 0x81;
+		  			  RotaryModeOld = 0x10;
+		  		  }
+		  		  break;
+
+		      case 0x01:
+		  	  case 0x81:
+		  		  if(RotaryKeyTimePressed > 1500)
+		  		  {
+				  	  Uart_Puts("Special mode 2 <Enter>\r\n");
+		  			  RotaryMode = 0x82;
+		  			  RotaryModeOld = 0x10;
+		  		  }
+		  		  break;
+
+		  	  case 0x02:
+		  	  case 0x82:
+		  		  if(RotaryKeyTimePressed >= 2250)
+		  		  {
+				  	  Uart_Puts("Special mode <Exit>\r\n");
+				  	  RotaryKeyTimePressed = 0;
+		  			  RotaryMode = 0x80;
+		  			  RotaryModeOld = 0x10;
+		  		  }
+		  		  break;
+		  }
+	  }
+
+	  // rotary key released
+	  if((Keys.up & KEYS_ROTARY_SW) > 0)
+	  {
+			Keys.up &= ~KEYS_ROTARY_SW;
+
+			// kort gedrukt in normale mode anders tijd altijd > 750
+			if(RotaryKeyTimePressed < 750)
+			{
+				// in normale mode -> pauze
+				if(RotaryMode == 0x00)
+				{
+					HAL_GPIO_TogglePin(LED_PC13_GPIO_Port, LED_PC13_Pin);
+
+					Uart_Puts("||\r\n");
+					SendReport(USB_HID_PAUSE);
+				}
+			}
+			else
+			{
+				// has RotaryMode changed ?
+				if((RotaryModeOld == RotaryMode) || ((RotaryModeOld | 0x80) == RotaryMode))
+				{
+					// no -> short press -> exit special mode
+					RotaryMode = 0x00;
+					Uart_Puts("Special mode <Exit> (no change aka short press while in special mode)\r\n");
+				}
+
+				// langer gedrukt
+				// in speciale mode
+				if(RotaryMode >= 0x80)
+				{
+					// clear select vlag
+					RotaryMode &= ~0x80;
+					// start timeout
+					RotaryModeTimeOut = 2000;
+					Uart_Puts("RotaryModeTimeOut gestart\r\n");
+				}
+			}
+
+			// alway clear flag
+			RotaryMode &= ~0x80;
+	  }
+
+	  // time out -> alleen in een speciale mode van toepassing
+	  if((RotaryMode > 0x00) && (RotaryMode < 0x80) && (RotaryModeTimeOut == 0))
+	  {
+		  Uart_Puts("Special mode <Exit>  (timeout)\r\n");
+		  RotaryMode = 0x00;
+	  }
+
+
+	  // send a usb message key has been released
+	  if((MustClearKey) && (MustClearKey_Delay == 0))
+	  {
+		  MustClearKey  = 0;
+
+		  mediaHID.keys = 0;
+		  USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&mediaHID, sizeof(struct mediaHID_t));
+	  }
+
+
+	  // delay task
+	  if(Delayer == 0)
+	  {
+	  	  Delayer = 100;
+
+	  	  HAL_GPIO_TogglePin(LED_PC13_GPIO_Port, LED_PC13_Pin);
+	  }
+
+	}
+}
+
 /* USER CODE END 0 */
 
 int main(void)
@@ -136,9 +338,6 @@ int main(void)
 	keyboardHID.key3 = 0;
 #endif
 
-	struct mediaHID_t mediaHID;
-	mediaHID.id = 2;
-	mediaHID.keys = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -168,11 +367,10 @@ int main(void)
 
   RotaryStart();
 
-  int16_t rot;
-
   // ena usb
   HAL_GPIO_WritePin(USB_PULL_GPIO_Port, USB_PULL_Pin, GPIO_PIN_SET);
 
+  Task();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -182,51 +380,6 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-
-
-	  if(Delayer == 0)
-	  {
-	  	  Delayer = 100;
-
-	  	  HAL_GPIO_TogglePin(LED_PC13_GPIO_Port, LED_PC13_Pin);
-	  }
-
-
-  	  // TURN => Volume up\down
-  	  rot = RotaryGet();
-	  if(rot > 0)
-	  {
-		  	Uart_Puts("+\r\n");
-		    SendReport(USB_HID_VOL_UP);
-	  }
-
-	  if(rot < 0)
-	  {
-		  	Uart_Puts("-\r\n");
-		    SendReport(USB_HID_VOL_DEC);
-	  }
-
-	  // rotary key pressed
-	  if((Keys.up & KEYS_ROTARY_SW) > 0)
-	  {
-			Keys.up &= ~KEYS_ROTARY_SW;
-			HAL_GPIO_TogglePin(LED_PC13_GPIO_Port, LED_PC13_Pin);
-
-		  	Uart_Puts("||\r\n");
-		    SendReport(USB_HID_PAUSE);
-	  }
-
-
-	  if(MustClearKey)
-	  {
-		  if(MustClearKey_Delay == 0)
-		  {
-			  MustClearKey  = 0;
-
-			  mediaHID.keys = 0;
-			  USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&mediaHID, sizeof(struct mediaHID_t));
-		  }
-	  }
   }
   /* USER CODE END 3 */
 
