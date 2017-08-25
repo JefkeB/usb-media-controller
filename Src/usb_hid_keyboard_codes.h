@@ -4,10 +4,12 @@
 // USB media codes
 #define USB_HID_SCAN_NEXT 				0x01
 #define USB_HID_SCAN_PREV 				0x02
-#define USB_HID_STOP      				0x04
+//#define USB_HID_STOP      				0x04
+#define USB_HID_FFW     				0x04
 #define USB_HID_EJECT     				0x08
 #define USB_HID_PAUSE     				0x10
-#define USB_HID_MUTE      				0x20
+//#define USB_HID_MUTE      				0x20
+#define USB_HID_REW      				0x20
 #define USB_HID_VOL_UP    				0x40
 #define USB_HID_VOL_DEC   				0x80
 
