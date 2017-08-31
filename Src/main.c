@@ -56,6 +56,7 @@
 
 #include "Rotary.h"
 #include "Uart.h"
+#include "WS2812B.h"
 
 /* USER CODE END Includes */
 
@@ -354,7 +355,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-
   MX_USB_DEVICE_Init();
 
   /* USER CODE BEGIN 2 */
@@ -366,6 +366,8 @@ int main(void)
   KeyScan();
 
   RotaryStart();
+
+  WS2812B_Start();
 
   // ena usb
   HAL_GPIO_WritePin(USB_PULL_GPIO_Port, USB_PULL_Pin, GPIO_PIN_SET);
@@ -454,10 +456,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitTypeDef GPIO_InitStruct;
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_PC13_GPIO_Port, LED_PC13_Pin, GPIO_PIN_SET);
@@ -490,6 +492,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(ROTARY_SW_Port, &GPIO_InitStruct);
 
 }
+
 
 /* USER CODE BEGIN 4 */
 
