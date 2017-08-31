@@ -46,6 +46,7 @@
   ******************************************************************************
   */
 /* Includes ------------------------------------------------------------------*/
+#include <WS2812B_leds.h>
 #include "main.h"
 #include "stm32f1xx_hal.h"
 #include "usb_device.h"
@@ -56,7 +57,6 @@
 
 #include "Rotary.h"
 #include "Uart.h"
-#include "WS2812B.h"
 
 /* USER CODE END Includes */
 
@@ -136,6 +136,33 @@ void SendReport(uint8_t key)
 }
 
 
+//
+//
+//
+void UpdateLeds()
+{
+	switch(RotaryMode)
+	{
+		case 0x00:
+		case 0x80:
+			  WS2812B_Leds_SingleColor(0x00, 0x00, 0x40);
+			  break;
+
+		case 0x01:
+		case 0x81:
+			  WS2812B_Leds_SingleColor(0x40, 0x00, 0x00);
+			  break;
+
+		case 0x02:
+		case 0x82:
+			  WS2812B_Leds_SingleColor(0x00, 0x40, 0x00);
+			  break;
+	}
+
+	WS2812B_Leds_Update();
+}
+
+
 // deze werkt leuk
 // alleen :
 // controle op niet veranderd heeft volgende probleem
@@ -150,6 +177,8 @@ void Task()
 
   mediaHID.id = 2;
   mediaHID.keys = 0;
+
+  UpdateLeds();
 
   while(1)
   {
@@ -224,8 +253,11 @@ void Task()
 		  		  if(RotaryKeyTimePressed > 750)
 		  		  {
 				  	  Uart_Puts("Special mode 1 <Enter>\r\n");
+
 		  			  RotaryMode = 0x81;
 		  			  RotaryModeOld = 0x10;
+
+		  			  UpdateLeds();
 		  		  }
 		  		  break;
 
@@ -234,8 +266,11 @@ void Task()
 		  		  if(RotaryKeyTimePressed > 1500)
 		  		  {
 				  	  Uart_Puts("Special mode 2 <Enter>\r\n");
+
 		  			  RotaryMode = 0x82;
 		  			  RotaryModeOld = 0x10;
+
+		  			  UpdateLeds();
 		  		  }
 		  		  break;
 
@@ -244,9 +279,12 @@ void Task()
 		  		  if(RotaryKeyTimePressed >= 2250)
 		  		  {
 				  	  Uart_Puts("Special mode <Exit>\r\n");
+
 				  	  RotaryKeyTimePressed = 0;
 		  			  RotaryMode = 0x80;
 		  			  RotaryModeOld = 0x10;
+
+		  			  UpdateLeds();
 		  		  }
 		  		  break;
 		  }
@@ -277,6 +315,8 @@ void Task()
 					// no -> short press -> exit special mode
 					RotaryMode = 0x00;
 					Uart_Puts("Special mode <Exit> (no change aka short press while in special mode)\r\n");
+
+					UpdateLeds();
 				}
 
 				// langer gedrukt
@@ -300,6 +340,8 @@ void Task()
 	  {
 		  Uart_Puts("Special mode <Exit>  (timeout)\r\n");
 		  RotaryMode = 0x00;
+
+		  UpdateLeds();
 	  }
 
 
@@ -367,10 +409,14 @@ int main(void)
 
   RotaryStart();
 
-  WS2812B_Start();
+  WS2812B_Leds_Init();
+  WS2812B_Leds_AllLedsOff();
+  while(WS2818B_Leds_Busy() == 1);
 
   // ena usb
   HAL_GPIO_WritePin(USB_PULL_GPIO_Port, USB_PULL_Pin, GPIO_PIN_SET);
+
+
 
   Task();
   /* USER CODE END 2 */
