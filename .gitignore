@@ -1,1 +1,3 @@
 Debug/**
+!/Debug/usbhidtest.bin
+!/Debug/usbhidtest.elf
