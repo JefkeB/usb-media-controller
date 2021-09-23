@@ -163,6 +163,62 @@ void UpdateLeds()
 }
 
 
+//
+struct {
+	uint16_t 	state;
+	uint8_t 	teller;
+} signalLedTask_data = { .state = 0, .teller = 0 };
+//
+//
+void signalLedTask()
+{
+	if(Delayer != 0) {
+		return;
+	}
+
+	Delayer = 100;
+
+	switch(signalLedTask_data.state) {
+		case 0:
+			if(hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED) {
+				signalLedTask_data.state = 10;
+				signalLedTask_data.teller = 0;
+				Delayer = 0;
+				HAL_GPIO_WritePin(LED_PC13_GPIO_Port, LED_PC13_Pin, GPIO_PIN_SET);
+			} else {
+				HAL_GPIO_TogglePin(LED_PC13_GPIO_Port, LED_PC13_Pin);
+			}
+		break;
+
+		case 10:
+			if(hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED) {
+				signalLedTask_data.state = 0;
+				Delayer = 0;
+				break;
+			}
+
+
+			// led on
+			if(HAL_GPIO_ReadPin(LED_PC13_GPIO_Port, LED_PC13_Pin) == GPIO_PIN_RESET) {
+				if(signalLedTask_data.teller == 0) {
+					signalLedTask_data.teller++;
+				} else {
+					HAL_GPIO_WritePin(LED_PC13_GPIO_Port, LED_PC13_Pin, GPIO_PIN_SET);
+					signalLedTask_data.teller = 0;
+				}
+			} else {
+				if(signalLedTask_data.teller < 10) {
+					signalLedTask_data.teller++;
+				} else {
+					HAL_GPIO_WritePin(LED_PC13_GPIO_Port, LED_PC13_Pin, GPIO_PIN_RESET);
+					signalLedTask_data.teller = 0;
+				}
+			}
+		break;
+	}
+}
+
+
 // deze werkt leuk
 // alleen :
 // controle op niet veranderd heeft volgende probleem
@@ -355,14 +411,8 @@ void Task()
 	  }
 
 
-	  // delay task
-	  if(Delayer == 0)
-	  {
-	  	  Delayer = 100;
-
-	  	  HAL_GPIO_TogglePin(LED_PC13_GPIO_Port, LED_PC13_Pin);
-	  }
-
+	  //
+	  signalLedTask();
 	}
 }
 
